@@ -1,0 +1,6 @@
+flask==3.1.*
+flask-cors
+flask-limiter
+mysql-connector-python
+python-dotenv
+bcrypt

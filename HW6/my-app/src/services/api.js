@@ -1,0 +1,351 @@
+const BASE_URL = 'http://localhost:5000/api';
+
+/**
+ * Default fetch options — all requests include credentials (cookies)
+ * so the session cookie is sent automatically by the browser.
+ */
+const DEFAULT_OPTIONS = { credentials: 'include' };
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+/**
+ * Sign up a new user. The server sets a session cookie automatically.
+ * @param {string} name
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise<{user: Object}>}
+ */
+export async function signupUser(name, email, password) {
+  const response = await fetch(`${BASE_URL}/signup`, {
+    ...DEFAULT_OPTIONS,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Signup failed');
+  }
+  return data;
+}
+
+/**
+ * Log in an existing user. The server sets a session cookie automatically.
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise<{user: Object}>}
+ */
+export async function loginUser(email, password) {
+  const response = await fetch(`${BASE_URL}/login`, {
+    ...DEFAULT_OPTIONS,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Login failed');
+  }
+  return data;
+}
+
+/**
+ * Log out the current user by destroying the server-side session.
+ * @returns {Promise<{message: string}>}
+ */
+export async function logoutUser() {
+  const response = await fetch(`${BASE_URL}/logout`, {
+    ...DEFAULT_OPTIONS,
+    method: 'POST',
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Logout failed');
+  }
+  return data;
+}
+
+/**
+ * Fetch the currently authenticated user via the session cookie.
+ * Returns null if the session is invalid or expired.
+ * @returns {Promise<Object|null>} User object or null.
+ */
+export async function fetchCurrentUser() {
+  try {
+    const response = await fetch(`${BASE_URL}/me`, DEFAULT_OPTIONS);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.user || null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Posts
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a page of posts (with author email already included).
+ * @param {number} start - Offset (0-based).
+ * @param {number} limit - Number of posts to fetch.
+ * @returns {Promise<Array>} Array of post objects.
+ */
+export async function fetchPosts(start = 0, limit = 10) {
+  const response = await fetch(
+    `${BASE_URL}/posts?_start=${start}&_limit=${limit}`,
+    DEFAULT_OPTIONS,
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch posts');
+  }
+  return response.json();
+}
+
+/**
+ * Fetch a page of posts for a specific user.
+ * @param {number} userId
+ * @param {number} start - Offset (0-based).
+ * @param {number} limit - Number of posts to fetch.
+ * @returns {Promise<Array>} Array of post objects.
+ */
+export async function fetchUserPosts(userId, start = 0, limit = 10) {
+  const response = await fetch(
+    `${BASE_URL}/posts?userId=${userId}&_start=${start}&_limit=${limit}`,
+    DEFAULT_OPTIONS,
+  );
+  if (!response.ok) {
+    throw new Error(`Failed to fetch posts for user ${userId}`);
+  }
+  return response.json();
+}
+
+/**
+ * Fetch a page of posts from users the current user follows.
+ * Requires an active session cookie.
+ * @param {number} start - Offset (0-based).
+ * @param {number} limit - Number of posts to fetch.
+ * @returns {Promise<Array>} Array of post objects.
+ */
+export async function fetchFollowingPosts(start = 0, limit = 10) {
+  const response = await fetch(
+    `${BASE_URL}/posts/following?_start=${start}&_limit=${limit}`,
+    DEFAULT_OPTIONS,
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch following posts');
+  }
+  return response.json();
+}
+
+/**
+ * Create a new post (requires an active session cookie).
+ * @param {string} title
+ * @param {string} body
+ * @param {string} [imageUrl] - Optional URL of an uploaded image.
+ * @returns {Promise<Object>} The created post response.
+ */
+export async function createPost(title, body, imageUrl = '') {
+  const response = await fetch(`${BASE_URL}/posts`, {
+    ...DEFAULT_OPTIONS,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body, image_url: imageUrl }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to create post');
+  }
+  return data;
+}
+
+/**
+ * Upload a post image file.
+ * @param {File} file - The image file to upload.
+ * @returns {Promise<{url: string}>} The uploaded file URL.
+ */
+export async function uploadPostImage(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${BASE_URL}/upload/image`, {
+    ...DEFAULT_OPTIONS,
+    method: 'POST',
+    body: formData,
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Image upload failed');
+  }
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a page of users.
+ * @param {number} start - Offset (0-based).
+ * @param {number} limit - Number of users to fetch.
+ * @returns {Promise<Array>} Array of user objects.
+ */
+export async function fetchUsers(start = 0, limit = 100) {
+  const response = await fetch(
+    `${BASE_URL}/users?_start=${start}&_limit=${limit}`,
+    DEFAULT_OPTIONS,
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch users');
+  }
+  return response.json();
+}
+
+/**
+ * Fetch a single user by ID (used for "Posts by [name]" heading).
+ * @param {number} userId
+ * @returns {Promise<Object>} User object.
+ */
+export async function fetchUser(userId) {
+  const response = await fetch(`${BASE_URL}/users/${userId}`, DEFAULT_OPTIONS);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user ${userId}`);
+  }
+  return response.json();
+}
+
+// ---------------------------------------------------------------------------
+// Follows
+// ---------------------------------------------------------------------------
+
+/**
+ * Follow a user.
+ * @param {number} userId - The user ID to follow.
+ * @returns {Promise<Object>} { message, following: true }
+ */
+export async function followUser(userId) {
+  const response = await fetch(`${BASE_URL}/users/${userId}/follow`, {
+    ...DEFAULT_OPTIONS,
+    method: 'POST',
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to follow user');
+  }
+  return data;
+}
+
+/**
+ * Unfollow a user.
+ * @param {number} userId - The user ID to unfollow.
+ * @returns {Promise<Object>} { message, following: false }
+ */
+export async function unfollowUser(userId) {
+  const response = await fetch(`${BASE_URL}/users/${userId}/follow`, {
+    ...DEFAULT_OPTIONS,
+    method: 'DELETE',
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to unfollow user');
+  }
+  return data;
+}
+
+/**
+ * Get the followers of a user.
+ * @param {number} userId
+ * @returns {Promise<{count: number, users: Array}>}
+ */
+export async function fetchFollowers(userId) {
+  const response = await fetch(
+    `${BASE_URL}/users/${userId}/followers`,
+    DEFAULT_OPTIONS,
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch followers');
+  }
+  return response.json();
+}
+
+/**
+ * Get the users that a user is following.
+ * @param {number} userId
+ * @returns {Promise<{count: number, users: Array}>}
+ */
+export async function fetchFollowing(userId) {
+  const response = await fetch(
+    `${BASE_URL}/users/${userId}/following`,
+    DEFAULT_OPTIONS,
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch following');
+  }
+  return response.json();
+}
+
+/**
+ * Check if the current authenticated user follows a target user.
+ * @param {number} userId - Target user ID.
+ * @returns {Promise<boolean>} True if following.
+ */
+export async function checkIsFollowing(userId) {
+  try {
+    const response = await fetch(
+      `${BASE_URL}/users/${userId}/is-following`,
+      DEFAULT_OPTIONS,
+    );
+    if (!response.ok) return false;
+    const data = await response.json();
+    return data.following;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Profile
+// ---------------------------------------------------------------------------
+
+/**
+ * Upload a profile picture file.
+ * @param {File} file - The image file to upload.
+ * @returns {Promise<{url: string}>} The uploaded file URL.
+ */
+export async function uploadProfilePicture(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${BASE_URL}/upload/profile-picture`, {
+    ...DEFAULT_OPTIONS,
+    method: 'POST',
+    body: formData,
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Upload failed');
+  }
+  return data;
+}
+
+/**
+ * Update a user's profile (name, bio, profile_picture).
+ * @param {number} userId
+ * @param {Object} fields - { name?, bio?, profile_picture? }
+ * @returns {Promise<{user: Object}>}
+ */
+export async function updateProfile(userId, fields) {
+  const response = await fetch(`${BASE_URL}/users/${userId}/profile`, {
+    ...DEFAULT_OPTIONS,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Profile update failed');
+  }
+  return data;
+}
