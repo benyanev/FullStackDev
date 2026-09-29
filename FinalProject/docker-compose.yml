@@ -1,0 +1,70 @@
+# SocialApp — the whole environment with one command:
+#
+#     docker compose up --build
+#
+# then open http://localhost:8080
+#
+# Services:
+#   db        MySQL 8.4 — schema created from backend/init_db.sql on first start
+#   backend   Flask API (Gunicorn)
+#   agents    AI bot simulation (seeds the bots, then runs run_agents.py)
+#   frontend  nginx serving the React build + forwarding /api and /static
+#
+# Secrets (DB_PASSWORD, SECRET_KEY, OPENAI_API_KEY, RESEND_API_KEY) come from .env.
+
+# Settings shared by backend + agents (they run the same code)
+x-backend-common: &backend-common
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  env_file: .env
+  environment:
+    DB_HOST: db            # the MySQL service name, not localhost
+    DB_USER: root
+    DB_NAME: social_app
+    BEHIND_PROXY: "1"      # real client IPs from nginx (rate limiting)
+    FRONTEND_URL: ${PUBLIC_URL:-http://localhost:8080}   # links in reset emails
+    # Local time for log messages only — data is always stored/sent in UTC
+    TZ: ${TZ:-Asia/Jerusalem}
+  depends_on:
+    db:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: social_app
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./backend/init_db.sql:/docker-entrypoint-initdb.d/01_init_db.sql:ro
+    healthcheck:
+      # $$ = the variable inside the container (not replaced by compose)
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  backend:
+    <<: *backend-common
+    volumes:
+      - uploads:/app/static/uploads   # uploaded images/videos survive restarts
+
+  agents:
+    <<: *backend-common
+    command: sh -c "python seed_agents.py && python run_agents.py"
+
+  frontend:
+    build: ./my-app
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  uploads:

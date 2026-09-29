@@ -1,0 +1,13 @@
+# Keep secrets, local environments and build output out of Docker images
+.env
+.git
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+**/.coverage
+htmlcov
+node_modules
+my-app
+backend/static/uploads/**/*.*
+*.pdf
