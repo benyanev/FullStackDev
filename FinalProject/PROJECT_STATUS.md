@@ -1,235 +1,239 @@
-# SocialApp — Project Status & Agent Handoff Document
+# SocialApp — Project Status & AI-Agent Handoff
 
-> **Last updated**: 2026-09-23  
-> **Purpose**: This document gives any AI agent (or developer) full context to continue building this project from exactly where we left off.
-
----
-
-## 1. Project Overview
-
-**What**: A TikTok-style social media platform built as an academic final project.  
-**Stack**: Flask (Python) backend + React 19 / Vite / MUI frontend + MySQL database.  
-**Workspace root**: `c:\Users\benya\CS\FullStackDev\myReact`  
-**Requirements PDF**: `RUNI Full Stack Project 2026 (1).pdf` (in workspace root)
+> **Last updated:** 2026-09-29 (≈04:30 Israel time)
+> **Read this first.** It tells an AI agent (or developer) exactly what is finished, what is left,
+> how to do it, and which mistakes to avoid. Everything except **Phase 11 (AWS deployment)** is DONE.
 
 ---
 
-## 2. Architecture
+## 0. TL;DR — where we stopped
+
+- **All features, all PDF requirements, 3 optional features, tests, Docker: DONE and verified.**
+- **GitHub: DONE (except the newest AWS files).** Branch `FinalProject` pushed to
+  https://github.com/benyanev/FullStackDev/tree/FinalProject (project lives in the folder `FinalProject/`).
+- **LEFT: Phase 11 — deploy to AWS (EC2 + RDS + free HTTPS domain).** Config files are written
+  (`docker-compose.aws.yml`, `Caddyfile`) — committed locally in `myReact`, **not yet pushed and not yet run on AWS**.
+- The user took a break in the middle of Phase 11. **On return, first ask the user the open
+  questions in §3.1** (they asked to be reminded), then follow §3.
+
+---
+
+## 1. Project overview & locations
+
+**What:** Social media platform (RUNI Full Stack Project 2026 — final project).
+**Stack:** React 19 + Vite + MUI (frontend) · Flask 3 REST API (backend) · MySQL · OpenAI · Resend (email) · Docker.
+**User:** student (Windows 11, PowerShell 5.1, VS Code). Communicates in English; prefers step-by-step, simple, explainable code.
+
+| What | Where |
+|---|---|
+| Project (working copy) | `C:\Users\benya\cs\FullStackDev\myReact` (its own small local git repo, branch `main`) |
+| GitHub clone (what gets pushed) | `C:\Users\benya\cs\FullStackDev\FullStackDev` → remote `https://github.com/benyanev/FullStackDev.git` (public) |
+| Requirements PDF | `myReact\RUNI Full Stack Project 2026 (1).pdf` (git-ignored) |
+| EC2 SSH key | `C:\Users\benya\cs\FullStackDev\key_pair_benor.pem` (outside both repos — never commit) |
+| Secrets | `myReact\.env` only (git- and docker-ignored). **Never print or commit it.** Keys inside: DB_*, RESEND_API_KEY, OPENAI_API_KEY; commented `# for AWS` lines hold the RDS host/user. |
+| Python venv | `myReact\.venv` (use `..\.venv\Scripts\python.exe` from `backend/`) |
+| Docker CLI | `C:\Program Files\Docker\Docker\resources\bin` (old terminals may not have it on PATH — restart VS Code) |
+
+**GitHub repo convention:** one folder + one branch per assignment (`HW3`, `HW4`, `HW5`, `HW6`, `HW6.1`, …).
+`FinalProject` branch was created from `origin/HW6.1` and adds the folder `FinalProject/` (copy of `myReact`).
+
+---
+
+## 2. Requirements checklist (PDF) — all implemented
+
+| PDF item | Status | Where / notes |
+|---|---|---|
+| 1a Signup/login/logout, hashed passwords | ✅ | bcrypt, server sessions (UUID in HttpOnly cookie) |
+| 1b Profile: name, bio, picture, user's posts | ✅ | `UserProfile/` |
+| 1c Search by name, follow/unfollow + lists, "time ago" | ✅ | `Search/`, `useFollow`, `utils/timeAgo.js` (UTC-correct) |
+| 1d Global + following feed, infinite scroll | ✅ | `Feed/useFeed.js`, `hooks/useInfiniteScroll.js` |
+| 1e Post text + image, WYSIWYG bold/italic/**hyperlinks** | ✅ | Tiptap `NewPost/` (link button in `MenuBar.jsx`) |
+| 1f DB diagram | ✅ | `database_schema.md` (Mermaid ER, all 8 tables) |
+| 2a Secure password reset by email | ✅ | Resend; one-time token 1h; logs out all sessions |
+| 2b Likes + comments | ✅ | |
+| 2c Autocorrect, suggested posts, suggested comments | ✅ | `ai_service.py`, `AiAssistBar.jsx`, ✨ in comments |
+| 2d ≥10 agents with personalities, continuous | ✅ | 12 agents, `seed_agents.py` + `run_agents.py` |
+| 2e Admins, report + dashboard (delete/ban), sentiment block | ✅ | `/admin`, OpenAI Moderation blocks toxic posts/comments |
+| 2f 85% coverage | ✅ | **97.9%**, 273 tests; run fails < 85% |
+| 3 Optional ×3 | ✅ | Video (custom player + autoplay on scroll), Responsive, Docker |
+| 4 Deployed on AWS | ⏳ **Phase 11 — in progress** | see §3 |
+| Submission: GitHub link + site URL | ⏳ | GitHub done; URL after AWS |
+
+---
+
+## 3. REMAINING WORK — Phase 11: AWS deployment
+
+**Decisions already made by the user:** EC2 (already running) + **their existing RDS MySQL** + **HTTPS with a free DuckDNS domain**.
+**Design (already coded):** on EC2 run `docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build`:
+- `db` container disabled (profile) → backend/agents use **RDS** (`DB_HOST`/`DB_USER`/`DB_PASSWORD` from `.env`)
+- **Caddy** (`Caddyfile`) is the only public entry (80/443), auto Let's Encrypt cert for `$DOMAIN`, HSTS, proxies to nginx (`frontend`)
+- `FLASK_ENV=production` (Secure cookie), `PROXY_HOPS=2` (Caddy + nginx → real client IP for rate limits), `FRONTEND_URL=https://$DOMAIN`
+
+### 3.1 Ask the user first (they asked to be reminded)
+1. **EC2 OS** — Ubuntu (SSH user `ubuntu`) or Amazon Linux (`ec2-user`)? ("remind me to check it later")
+2. **Which data on AWS** — copy local data (users/posts/comments/likes + uploaded images/videos) into RDS, or start fresh (only the 12 bots)? ("remind me and ask me later"). Recommend copying. **Check what RDS `social_app` already contains and tell the user before replacing anything.**
+3. **EC2 public IP (ideally an Elastic IP) and DuckDNS domain** (e.g. `socialapp-benor.duckdns.org`).
+4. Confirm the manual console steps below are done.
+
+### 3.2 Manual steps the USER must do (websites Claude can't log into)
+1. **DuckDNS**: https://www.duckdns.org → sign in → create subdomain → set "current ip" = EC2 public IP.
+2. **Elastic IP (recommended)**: EC2 → Elastic IPs → Allocate → Associate with the instance (otherwise the IP changes on stop/start and breaks the domain). Put that IP in DuckDNS.
+3. **EC2 security group inbound**: SSH 22 from *My IP*; HTTP 80 + HTTPS 443 from *Anywhere-IPv4* (80 is needed for the Let's Encrypt challenge).
+4. **RDS security group inbound**: MySQL 3306 **source = the EC2 instance's security group**. (Verified 2026-09-29: RDS is NOT reachable from the user's PC — correct, keep it that way.)
+
+### 3.3 Step-by-step (Claude does this, with the user's OK)
+0. **Publish the latest files first** (the "Phase 11 prep" commit is only local): sync `myReact` into the clone's
+   `FinalProject/` folder and push (see §4 "How to publish" — skip its first `git commit` line if nothing changed).
+1. **SSH** (Git Bash): `ssh -i /c/Users/benya/cs/FullStackDev/key_pair_benor.pem <user>@<IP>`
+   (If "permissions too open": the key must be readable only by the user.)
+2. **Install Docker** on the server
+   - Ubuntu: `curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER` (log out/in)
+   - Amazon Linux 2023: `sudo dnf install -y docker git && sudo systemctl enable --now docker && sudo usermod -aG docker ec2-user`, then install the compose plugin (`~/.docker/cli-plugins/docker-compose` from the docker/compose GitHub releases).
+   - **Small instances (t2/t3.micro, 1 GB RAM)**: add swap before building, or `npm ci`/`vite build` can be killed:
+     `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`
+3. **Get the code**: `git clone --branch FinalProject --single-branch https://github.com/benyanev/FullStackDev.git && cd FullStackDev/FinalProject`
+4. **Create `.env` on the server** (prepare it on the PC from `.env.example`, copy with `scp -i <key> .env.aws <user>@<IP>:~/FullStackDev/FinalProject/.env`; never commit it). Must contain:
+   `DB_HOST=<RDS endpoint>`, `DB_USER=admin` (from the commented AWS lines in local `.env`), `DB_PASSWORD`, `DB_NAME=social_app`,
+   `SECRET_KEY=<new random: python -c "import os;print(os.urandom(24).hex())">`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-4.1-mini`,
+   `RESEND_API_KEY`, `EMAIL_FROM`, `DOMAIN=<name>.duckdns.org`, `AGENT_INTERVAL_SECONDS=60`. Make sure it has LF line endings.
+5. **Prepare the RDS database** (from the server, e.g. `docker run --rm -it mysql:8.4 mysql -h <RDS> -u admin -p`):
+   - Inspect first: `SHOW DATABASES; USE social_app; SHOW TABLES; SELECT COUNT(*) FROM users;` → report to the user.
+   - **Fresh**: pipe `backend/init_db.sql` (full current schema) into RDS.
+   - **Copy local data** (user's choice): on the PC
+     `& "C:\Program Files\MySQL\MySQL Server 9.6\bin\mysqldump.exe" -u root -p --single-transaction --no-tablespaces --set-gtid-purged=OFF social_app --result-file=local_dump.sql`,
+     `scp` it to the server, import into RDS (`CREATE DATABASE IF NOT EXISTS social_app` first), delete the dump afterwards.
+     If RDS is MySQL 8.x and the dump fails on a 9.x-only feature, report the exact error.
+   - An existing RDS schema from an older homework must be upgraded (missing migrations `backend/migrate_v*.sql`) or replaced — ask the user.
+6. **Start**: `docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build`
+   then `docker compose ... logs -f caddy` until the certificate is obtained, and `logs agents` (bots seed themselves).
+7. **Uploads** (only if data was copied): `scp -r` the PC's `backend/static/uploads` to the server, then
+   `docker compose ... cp uploads/. backend:/app/static/uploads/`.
+8. **Admin**: `docker compose -f docker-compose.yml -f docker-compose.aws.yml exec backend python make_admin.py <user email>`
+9. **Verify**: `https://<domain>` loads with a padlock; sign up/login works (Secure cookie); post with image/video; comments/likes;
+   AI assist; moderation blocks a toxic comment; reset email link points to `https://<domain>` (Resend's test sender only
+   delivers to the Resend account owner — the address the Resend account was registered with); bots post; `/admin`.
+   From the PC: `npx cypress run --config baseUrl=https://<domain>` (creates `e2e_test_*` users — delete them after).
+   Check headers: `curl -sI https://<domain>` (CSP, X-Frame-Options, HSTS).
+10. **Finish**: put the live URL in `README.md`, publish again (§4), give the user the two submission links
+    (GitHub `…/tree/FinalProject/FinalProject` + `https://<domain>`). Remind them about costs (stop/terminate
+    EC2/RDS/Elastic IP after grading) and to keep only one bot runner (local, Docker or AWS) active.
+
+**Known limits to mention if asked:** rate-limit counters are in memory (fine for 1 server process); OpenAI moderation fails
+open if OpenAI is down; Resend test sender only reaches the account owner (a verified domain is needed for everyone).
+
+---
+
+## 4. Git / GitHub state and how to publish
+
+- **Local project repo** (`myReact`, branch `main`): `229f30f` (initial), `fefdc5b` (final project, = what is on GitHub),
+  then a local commit "Phase 11 prep" with `docker-compose.aws.yml`, `Caddyfile`, PROXY_HOPS (`backend/core/config.py`,
+  `backend/app.py`, `backend/tests/test_app.py`) and this file — **committed locally, NOT yet copied to the clone / pushed**.
+- **GitHub clone** (`FullStackDev\FullStackDev`): branch `FinalProject` (commit `471f36d`) pushed and tracking `origin/FinalProject`.
+- **How to publish changes** (Git Bash; copies only tracked files, so `.env`, `.venv`, `node_modules`, uploads never leave the PC):
+  ```bash
+  cd /c/Users/benya/cs/FullStackDev/myReact && git add -A && git commit -m "..."
+  cd /c/Users/benya/cs/FullStackDev/FullStackDev && git checkout FinalProject
+  rm -rf FinalProject && mkdir FinalProject && git -C ../myReact archive HEAD | tar -x -C FinalProject
+  git add -A FinalProject && git grep --cached -nE "sk-proj-|re_[0-9A-Za-z]{8}" -- FinalProject   # must print nothing
+  git commit -m "..." && git -c http.sslBackend=schannel push
+  ```
+  (`http.sslBackend=schannel` is needed on this PC — the default OpenSSL backend fails with "unable to get local issuer certificate".)
+- Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (session attribution rule).
+- **Never** `git add` the `.env`, the `.pem` key, dumps, or `static/uploads/*` files. History was checked: no secret was ever committed.
+
+---
+
+## 5. How to run (3 ways)
+
+| Mode | Command | URL | Database |
+|---|---|---|---|
+| Local dev (hot reload) | `backend: python app.py` + `my-app: npm run dev` (+ optional `backend: python run_agents.py`) | http://localhost:5173 | local MySQL 9.6 (`social_app`) |
+| Docker on the PC | `docker compose up -d` (`--build` after code changes); stop: `docker compose down` (`-v` deletes data) | http://localhost:8080 | its **own** MySQL container (data was copied from local once; they now drift apart) |
+| AWS | §3 | https://<domain> | RDS |
+
+- Tests: `cd backend && ..\.venv\Scripts\python.exe -m pytest tests/ --cov` → **273 passed, 97.9%** (fails < 85%).
+- Lint/build: `cd my-app && npx eslint src && npx vite build` (delete `dist/` after) → 0 errors.
+- E2E: servers running, `cd my-app && npx cypress run [--config baseUrl=http://localhost:8080]` → 10/10.
+- Migrations on local MySQL: all of v1–v9 are applied. New DBs use `backend/init_db.sql` (identical schema, verified).
+- Make a moderator: `python make_admin.py <email>` (local) / `docker compose exec backend python make_admin.py <email>`.
+- Bot runners: only run ONE (local `run_agents.py`, Docker `agents`, or AWS) — each spends OpenAI credit (user added $10).
+
+---
+
+## 6. Architecture
 
 ```
-BROWSER (React 19 / Vite / MUI)
-  Components → Hooks → Services (httpClient.js) → /api/*
-                          │ HTTP (JSON + HttpOnly Cookies)
-FLASK MONOLITH
-  Routes (Blueprints) → Controllers → Services → Repos → MySQL
-  Middleware: auth_required (session cookie validation)
-  Extensions: CORS, Flask-Limiter
-  Sessions: Server-side in MySQL (HttpOnly cookie)
-                          │
-                  MySQL 9.6 (DB: social_app)
+Browser (React 19 / MUI) ── /api/* JSON + HttpOnly cookie, /static/* media
+   │   dev: Vite proxy :5173 → Flask :5000
+   │   Docker: nginx (frontend container, CSP + security headers) → Gunicorn (1 worker × 8 threads)
+   │   AWS: Caddy (HTTPS) → nginx → Gunicorn
+Flask: routes (Blueprints + rate limits) → controllers (utils/request_helpers) → services (rules, AppError)
+       → repositories (raw SQL, %s params, own connection each, UTC session) → MySQL
+Separate process: run_agents.py → agent_service → ai_service + post/comment services (same rules as humans)
+External: OpenAI (moderation, chat), Resend (email)
 ```
 
-### Backend Structure (`backend/`)
+**Backend (`backend/`)**: `app.py` (factory, JSON error handlers, ProxyFix, limiter config) ·
+`core/` (config from `.env` with `override=True`, database `time_zone='+00:00'`, exceptions incl. ModerationError 422, extensions) ·
+`middlewares/auth_middleware.py` (`_check_session` → `auth_required`, `admin_required`, `get_optional_user_id`; banned users rejected on every request) ·
+`repositories/` (user, post [like_count/comment_count subqueries], comment, like, follow, session [joins is_banned], reset, report) ·
+`services/` (auth [validate_password], user [PRIVATE_FIELDS hidden publicly], post, comment, like, follow, reset, email [Resend], upload [magic bytes], sentiment, ai, agent, admin, report) ·
+`utils/` (serializers → UTC ISO, request_helpers, file_helpers [`is_upload_url`]) ·
+scripts `seed_agents.py`, `run_agents.py`, `make_admin.py` · `init_db.sql`, `migrate_v2..v9.sql` · `Dockerfile`.
 
-```
-backend/
-├── app.py                    # Application factory (create_app)
-├── core/
-│   ├── config.py             # ENV vars, SECRET_KEY, DB creds, UPLOAD_FOLDER
-│   ├── database.py           # get_connection() → mysql-connector-python
-│   ├── exceptions.py         # AppError, ValidationError(400), NotFoundError(404), AuthError(401)
-│   └── extensions.py         # CORS, Flask-Limiter instances
-├── middlewares/
-│   └── auth_middleware.py    # @auth_required decorator (checks session cookie)
-├── repositories/             # Raw SQL, each function opens/closes its own connection
-│   ├── user_repository.py    # get_user_by_id, get_user_by_email, create_user, update_profile, update_password_hash
-│   ├── post_repository.py    # get_post_by_id, get_posts_paginated, create_post
-│   ├── session_repository.py # create_session, get_session, delete_session, delete_expired_sessions
-│   ├── follow_repository.py  # add_follow, remove_follow, get_followers, get_following, is_following
-│   ├── like_repository.py    # add_like, remove_like, get_like_count, has_user_liked
-│   ├── comment_repository.py # create_comment, get_comments_by_post, get_comment_count
-│   └── reset_repository.py   # create_reset_token, get_reset_by_token, mark_token_used, invalidate_user_tokens
-├── services/                 # Business logic, raises AppError subclasses
-│   ├── auth_service.py       # signup, login, logout, get_current_user
-│   ├── follow_service.py     # toggle_follow, get_followers, get_following
-│   ├── like_service.py       # toggle_like, get_post_likes
-│   ├── comment_service.py    # add_comment, get_comments
-│   ├── reset_service.py      # request_reset, confirm_reset
-│   ├── email_service.py      # send_email (dev: prints to console; prod: Gmail SMTP)
-│   ├── post_service.py       # create_post
-│   ├── upload_service.py     # save_image, save_profile_picture
-│   └── user_service.py       # get_users, update_profile
-├── controllers/              # Parse HTTP request → call service → return JSON
-├── routes/                   # Flask Blueprints, URL mapping + middleware decorators
-├── utils/
-│   └── serializers.py        # serialize_dates_list (datetime → ISO string for JSON)
-├── tests/                    # 272 tests total, all passing, 97.9% coverage
-└── static/uploads/           # User-uploaded files (posts/ + profile_pictures/)
-```
+**Frontend (`my-app/src/`)**: `main.jsx` (MUI theme, responsive fonts) · `App.jsx` (routes) · `context/AuthContext` ·
+`services/*` (`httpClient.js`: `request`/`get`/`requestFormData`, errors carry `.status`, non-JSON safe) ·
+`hooks/` (useInfiniteScroll, useFollow, useAutoPlay) · `components/` (Admin/, Feed/, NewPost/ [MenuBar with link, MediaUploadArea, AiAssistBar],
+SinglePost/ [PostBody with DOMPurify allowlist, PostActions, CommentSection, VideoPlayer, ReportDialog], UserProfile/, Users/, User/, Search/,
+TopBar + MobileMenu, AgentBadge, ModerationDialog, Login, Signup, ResetRequest, ResetConfirm) · `nginx.conf`, `Dockerfile` · `cypress/e2e/`.
 
-### Frontend Structure (`my-app/src/`)
-
-```
-my-app/src/
-├── App.jsx                   # Root: BrowserRouter + AuthProvider + Routes
-├── context/AuthContext.jsx   # user, loading, login(), signup(), logout()
-├── services/                 # httpClient.js + domain services (auth, posts, likes, comments, reset, etc.)
-├── hooks/                    # useInfiniteScroll.js, useFollow.js
-├── components/
-│   ├── TopBar.jsx, Login.jsx, Signup.jsx
-│   ├── ResetRequest.jsx, ResetConfirm.jsx
-│   ├── Feed/ (Feed.jsx, useFeed.js)
-│   ├── SinglePost/ (SinglePost.jsx, PostHeader.jsx, PostBody.jsx, PostActions.jsx, CommentSection.jsx)
-│   ├── NewPost/ (Tiptap rich text editor)
-│   ├── Users/, UserProfile/, Search/
-└── utils/ (avatarColor.js, timeAgo.js)
-```
+**Database (8 tables):** users (role, is_banned, is_agent, personality), posts (image_url, video_url), sessions, follows, likes, comments, password_resets, reports. See `database_schema.md`.
 
 ---
 
-## 3. Database
+## 7. Coding rules & patterns (follow these)
 
-**Tables**: `users`, `posts`, `sessions`, `follows`, `likes`, `comments`, `password_resets`, `reports`  
-**Full schema**: `database_schema.md` (workspace root)  
-**Migrations applied**: `migrate_v1.sql` through `migrate_v6.sql` (v7 = Phase 3, v8 = Phase 6, v9 = Phase 8 — run manually)  
-**Credentials**: Host=`localhost`, User=`root`, DB=`social_app` — password lives in `.env` only (never commit it)
+**User rules:** strict simplicity (easy to explain/defend) · one phase at a time with tests · **pause for review after each phase** ·
+explain what the user must run; give **one-line** PowerShell commands · warn at the TOP of a phase if a migration must run first
+(new code + old DB = broken site) · deployment-friendly code (settings from env, no hardcoded localhost).
 
----
+**Backend:** controller = `json_body()`/`get_text()`/`page_params()` → service → `try/except AppError` → `jsonify` ·
+services validate (length limits) and raise `ValidationError`/`NotFoundError`/`ForbiddenError`/`ConflictError`/`ModerationError` ·
+repositories: `conn = get_connection(); cursor; try/finally close` · new rate-limited routes: `@limiter.limit(...)` above `@auth_required` ·
+public data must not include email/role/is_banned.
 
-## 4. Completed Phases
+**Tests:** pytest, AAA, `@patch` where the name is **used** (e.g. `services.reset_service.send_email`).
+`tests/conftest.py` autouse fixtures: blank RESEND/OPENAI keys, **disable rate limits** (`app.RATELIMIT_ENABLED`), and
+**block real DB connections** (`mysql.connector.connect` raises) — a test that forgets a mock fails instead of touching the user's DB.
 
-### Phase 1: Likes & Comments (Core 2b) ✅
-- `likes` + `comments` tables, full backend stack, PostActions.jsx + CommentSection.jsx
-- 12 tests (6 unit + 6 integration)
-- API: `POST/GET /api/posts/<id>/like`, `POST/GET /api/posts/<id>/comments`
-
-### Phase 2: Password Reset (Core 2a) ✅
-- `password_resets` table, email_service (Resend HTTP API via `RESEND_API_KEY` in `.env`; dev: console print), reset_service (token gen + validation)
-- Send errors return 503; email/FRONTEND_URL config in `core/config.py`. Test sender onboarding@resend.dev only delivers to the Resend account owner
-- ResetRequest.jsx + ResetConfirm.jsx + "Forgot password?" on Login
-- 14 tests (9 unit + 5 integration)
-- API: `POST /api/reset-request`, `POST /api/reset-confirm`
-
-### Phase 3: Admin & Moderation (Core 2e i–ii) ✅
-- `migrate_v7.sql`: `users.role` ENUM('user','admin'), `users.is_banned`, `reports` table (posts only, UNIQUE reporter+post, ON DELETE CASCADE)
-- First admin: `UPDATE users SET role = 'admin' WHERE email = '...';`
-- `admin_required` decorator (stacks on `auth_required`; 401 → 403). Banned users rejected at login (403); banning deletes their sessions
-- report_repository, report_service (create), admin_service (reports, delete post, users, ban, role), report/admin controllers + routes
-- Frontend: 🚩 flag button + ReportDialog in PostActions (hidden on own posts), `Admin/AdminDashboard.jsx` at `/admin` (Reports + Users tabs), "Admin" link in TopBar for admins
-- 32 new tests (report/admin unit + integration, banned login)
-- API: `POST /api/reports`, `GET /api/admin/reports`, `PUT /api/admin/reports/<id>`, `DELETE /api/admin/posts/<id>`, `GET /api/admin/users`, `PUT /api/admin/users/<id>/ban`, `PUT /api/admin/users/<id>/role`
-
-### Phase 4: Sentiment Analysis (Core 2e.iii) ✅
-- `services/sentiment_service.py`: `ensure_not_toxic(*texts)` → OpenAI Moderation API (`omni-moderation-latest`, stdlib urllib, no new dependency); strips HTML; raises `ModerationError` (422) if flagged
-- Called in `comment_service.add_comment` and `post_service.create_post` (title + body in one call) BEFORE saving → toxic content is never stored
-- Fails open (allowed + console warning) when `OPENAI_API_KEY` is missing or OpenAI is unreachable
-- Frontend: httpClient errors now carry `.status`; `components/ModerationDialog.jsx` shown on 422 in CommentSection + NewPost (text kept for editing)
-- `tests/conftest.py` autouse fixture blanks RESEND/OPENAI keys in every test (no accidental real API calls)
-- 11 new tests (sentiment unit, post_service, comment toxic unit + integration)
-
-### Phase 5: AI Post Generation (Core 2c) ✅
-- `services/ai_service.py`: one `_chat()` helper → OpenAI Chat Completions (stdlib urllib), model from `OPENAI_MODEL` (default `gpt-4.1-mini`); errors → `AIUnavailableError` (503), real reason printed to console
-- `autocorrect(text)` keeps Tiptap HTML tags; `suggest_post(topic)` → JSON `{title, body}` (simple HTML); `suggest_comment(post_id)` reads the post + last 10 comments from the DB (context comes from the server, not the client)
-- API (login + 10/min rate limit): `POST /api/ai/autocorrect`, `/api/ai/suggest-post`, `/api/ai/suggest-comment`
-- Frontend: `NewPost/AiAssistBar.jsx` ("Write it for me" topic dialog, "Fix grammar" for title + body), ✨ suggest button in CommentSection. AI output is still moderated when the user publishes.
-- 20 new tests. NOTE: chat models need prepaid OpenAI credits (moderation is free).
-
-### Phase 6: Agent Bots / World Simulation (Core 2d) ✅
-- `migrate_v8.sql`: `users.is_agent`, `users.personality`; `seed_agents.py` creates 12 agents (idempotent, random unknown password, emails `*@agents.socialapp.local`)
-- `services/agent_service.py`: `run_agent_tick()` → one random active (non-banned) agent does one weighted action: post 3 / comment 4 / like 2 / follow 1. Comments read the discussion and reply by @name; skips posts where the agent spoke last. Content goes through post/comment services → validation + toxicity check apply to bots too
-- `ai_service.write_agent_post` / `write_agent_comment` (in-character prompts, avoids repeating recent titles)
-- `run_agents.py`: separate process loop (`AGENT_INTERVAL_SECONDS`, default 60), `--once [action]` for testing. Not inside Flask (reloader/workers would duplicate actions) → own container later
-- API responses now include `authorIsAgent` (posts, comments) and `is_agent`/`personality` (users). Frontend: `AgentBadge.jsx` "Bot" chip on posts, comments, profile (+ personality box), admin Users tab
-- 12 new tests
-
-### Phase 7: Testing to 85% (Core 2f) ✅ — 97.6% coverage
-- `tests/test_repositories.py`: table-driven tests for every repository function with a MagicMock connection (return value, commit only on writes, cursor + connection always closed) + edge cases (optional filters, partial profile update, ban → 0/1)
-- `tests/test_follow_user_services.py`, `tests/test_upload_service.py` (real FileStorage + tmp_path, nothing written to static/uploads), `tests/test_social_integration.py` (follows, users/profile, feeds, post creation, uploads via HTTP)
-- `.coveragerc`: `fail_under = 85` → the test run FAILS if coverage drops below 85%; CLI scripts (seed_agents, run_agents, print_db) excluded
-- Cypress spec fixed: types into Tiptap's contenteditable, finds the new post by text (bots may post first)
-- Run: `python -m pytest tests/ --cov` → 221 passed, 97.63%
-
-### Phase 8 (Optional 3d): Video Integration ✅
-- `migrate_v9.sql`: `posts.video_url`. One attachment per post: image OR video (service rejects both)
-- Backend: `upload_service.upload_video` (mp4/webm, 50 MB, `static/uploads/videos/`) sharing `_save_upload` with images; `POST /api/upload/video`; `MAX_CONTENT_LENGTH` + JSON 413 handler; post queries return `video_url`
-- Frontend: `hooks/useAutoPlay.js` (IntersectionObserver, plays at ≥60% visible, pauses when out of view), `SinglePost/VideoPlayer.jsx` (custom UI: click play/pause, big ▶ overlay, mute toggle, progress bar, starts muted), `NewPost/MediaUploadArea.jsx` replaces ImageUploadArea (image or video + preview)
-- 9 new tests (230 total, 97.7% coverage)
-
-### Phase 9 (Optional 3b): Responsive Design ✅
-- `main.jsx`: MUI ThemeProvider with `responsiveFontSizes(createTheme())` → headings shrink on phones
-- `TopBar.jsx` + new `MobileMenu.jsx`: below `md` the button row is replaced by a hamburger → right Drawer (links, New Post, My Profile, Logout); "+ New Post" stays in the bar
-- Page padding by breakpoint (`px: { xs: 2, sm: 3 }`, form cards `p: { xs: 2.5, sm: 4 }`) on all pages; ProfileCard smaller banner/avatar on phones, long emails wrap; Admin tables keep `minWidth: 600` and scroll sideways inside their container
-- `cypress/e2e/responsive.cy.js`: 8 tests at 375×812 (no horizontal overflow on public pages + profile, hamburger works, desktop keeps the button row)
-
-### Phase 10 (Optional 3f): Containerization — Docker ✅
-- `docker compose up --build` → http://localhost:8080. Services: `db` (mysql:8.4, schema from `backend/init_db.sql`), `backend` (Gunicorn, 2 workers), `agents` (seed_agents + run_agents), `frontend` (node:24 build → nginx)
-- `backend/init_db.sql` rewritten = full current schema (v1–v9) for NEW databases; migrations stay for upgrading existing ones
-- `my-app/nginx.conf`: SPA fallback, proxies `/api` + `/static` to backend, `client_max_body_size 51m`
-- Deploy-ready code: no hardcoded localhost in frontend (relative media URLs; Vite now also proxies `/static`), `CORS_ORIGINS` env, `BEHIND_PROXY=1` → ProxyFix (real client IP for rate limits), `FRONTEND_URL` from `PUBLIC_URL`
-- Volumes `db_data`, `uploads` persist data. `.dockerignore` keeps `.env` out of images (secrets passed via `env_file`)
-- `backend/make_admin.py <email>` (works in Docker and locally). `package-lock.json` regenerated (was out of sync → `npm ci` failed)
-- Verified: all containers healthy, Cypress 10/10 against :8080, upload + restart persistence OK. 232 backend tests, 97.7%
-- Fixes after user testing: nginx `resolver 127.0.0.11` + `set $backend` (nginx resolved `backend` only at startup → 502 after every backend restart/rebuild); `/static` unbuffered (video streaming); Gunicorn `--threads 4` (2×4 concurrent requests, slow AI calls no longer block the site)
-- Docker has its OWN database (empty on first start). Local data was copied in with mysqldump + `docker compose cp` of uploads (commands in README). Schema check: DB built from `init_db.sql` == DB built by migrations v1–v9 (8 tables, all columns, 12 FKs identical)
+**Frontend:** services via `httpClient.js`; MUI icons imported directly (`@mui/icons-material/Xxx`); `useAuth()`;
+data fetching in effects uses `.then()` chains (ESLint `react-hooks/set-state-in-effect`); outdated requests ignored via a request-id ref (see `useFeed.js`).
 
 ---
 
-### Final review (2026-09-29) — timezone + security & correctness audit ✅
-- Time zone: every DB connection uses UTC (`time_zone='+00:00'`), API sends ISO with `+00:00`, browser shows local time; containers log in `TZ=Asia/Jerusalem`
-- PDF gaps fixed: editor **hyperlink** button (1e.i), `password_resets` in the ER diagram (1f)
-- Bugs fixed: like state lost after refresh (public route now reads the optional session), comment count 0 until opened (counts in feed query), feed tab-switch race + duplicate posts on scroll, profile "no changes" error, HTML error pages breaking the frontend
-- Hardening: JSON body/param helpers (`utils/request_helpers.py`), length limits, capped pagination, JSON 404/405/429/500 handlers, ban checked on every request, sessions deleted on password reset, reset email HTML-escaped + no enumeration, rate limits (reset, posts, comments, uploads), upload magic-byte check, media URLs must be our uploads, emails removed from public responses, DOMPurify allowlist + safe links, nginx CSP/X-Frame/nosniff/server_tokens off, pinned requirements, Gunicorn 1 worker × 8 threads (exact in-memory rate limits), `print_db.py` removed
-- Tests: `conftest.py` blocks real DB + external APIs + rate limits in tests; 272 passed, 97.9% coverage; ESLint 0 errors; Cypress 10/10 on Docker
+## 8. Gotchas learned on this PC (read before running commands)
 
-## 5. Remaining Phases
-
-### Phase 11: GitHub push + AWS Deployment (done at the end, together with the user)
-- Before deploying fix: hardcoded `BACKEND_URL = 'http://localhost:5000'` in SinglePost.jsx, CORS origin `localhost:5173` in app.py, `FRONTEND_URL` for reset links, `init_db.sql` must include migrations v2–v9; nginx `client_max_body_size 51M` for videos; uploads need a persistent volume; agents need their own container running `run_agents.py`
-- RDS + EC2/ECS + Docker + Gunicorn + Nginx + SSL
-
-### Optional (3 selected)
-1. **Video Integration**: play/pause, auto-play on scroll, video_url on posts
-2. **Containerization**: Dockerfile + docker-compose
-3. **Responsive Design**: Mobile-first MUI breakpoints
+- **PowerShell splits long pasted commands** onto a `>>` line → give short one-line commands; when the user's terminal fails, Claude can run DB migrations via the venv Python (`core.database.get_connection()`).
+- PowerShell 5.1 mangles nested quotes for native exes (`mysql -e "…'…'…"`) → use scripts (`make_admin.py`) or `Get-Content file -Raw | …`.
+- A **Windows-level `OPENAI_API_KEY`** (User + Machine env vars, old key) existed → `load_dotenv(..., override=True)` in `core/config.py` makes `.env` win. Don't remove the override.
+- OpenAI: moderation is free; chat needs credits (user added $10). Model `gpt-4.1-mini`.
+- Resend test sender (`onboarding@resend.dev`) only delivers to the account owner's address.
+- Git Bash heredocs turn `\x89`-style escapes into raw bytes when editing via Python heredoc → write such files with the Write tool.
+- nginx must resolve `backend` via `resolver 127.0.0.11` + variable (`set $backend`), otherwise 502 after every backend restart.
+- `package-lock.json` must stay in sync (Docker uses `npm ci`, Node 24 image = local Node 24).
+- Docker has its own DB — "posts missing" in Docker means data wasn't copied, not a bug.
+- All times are UTC in DB/API; containers use `TZ=Asia/Jerusalem` only for logs.
 
 ---
 
-## 6. Coding Patterns
+## 9. History of completed phases (short)
 
-### User-Mandated Rules
-- **Strict Simplicity**: No over-engineering. Easy to explain and defend.
-- **Incremental**: ONE phase at a time. Tests alongside feature code.
-- **Pause for Review**: After each phase, STOP and wait for user confirmation.
-- **No unnecessary commands**: Let user run manually.
-
-### Backend Patterns
-- **Repository**: `conn = get_connection()`, `cursor`, `try/finally` close
-- **Service**: Validates, raises `ValidationError`/`NotFoundError`/`AuthError`
-- **Controller**: `request.get_json()` → service call → `try/except AppError` → `jsonify`
-- **Routes**: Blueprint + `@auth_required` for protected
-- **Tests**: AAA pattern, `@patch("services.xxx.function_name")` — patch where the name is **used**, not where it is defined (e.g. `@patch("services.reset_service.send_email")`), otherwise the real function runs.
-
-### Frontend Patterns
-- **Services**: `request()`/`get()` from `httpClient.js`, base URL auto-prepended
-- **MUI Icons**: ALWAYS `import XxxIcon from '@mui/icons-material/Xxx'` (direct default, NOT barrel)
-- **Auth**: `useAuth()` from `AuthContext`
-- **Barrel**: Update `services/index.js` for new service files
-
----
-
-## 7. Test Status
-
-**272 tests, all passing — 97.9% coverage** (fails below 85%) — run: `python -m pytest tests/ --cov`
-
----
-
-## 8. How to Run
-
-```powershell
-# Backend:  cd myReact\backend && python app.py  (port 5000)
-# Frontend: cd myReact\my-app  && npm run dev    (port 5173)
-# Migration: Get-Content backend\migrate_vX.sql -Raw | & "C:\Program Files\MySQL\MySQL Server 9.6\bin\mysql.exe" -u root -p social_app   (prompts for the password)
-# Tests:    cd myReact\backend && python -m pytest tests/ --cov   (coverage report, fails < 85%)
-# E2E:      both servers running, then  cd myReact\my-app && npx cypress run
-# Agents:   cd myReact\backend && python seed_agents.py   (once)  then  python run_agents.py   (keep running in its own terminal)
-```
+1. **Likes & comments** · 2. **Password reset** (Resend, UTC, enumeration-safe) · 3. **Admin & reports** (`migrate_v7`) ·
+4. **Moderation** (OpenAI, 422 → ModerationDialog) · 5. **AI assist** (autocorrect, write post, suggest comment) ·
+6. **12 AI agents** (`migrate_v8`, seed + runner, 🤖 badge) · 7. **Tests 85% → 97.9%** (table-driven repo tests, conftest guards) ·
+8. **Video** (`migrate_v9`, custom player, autoplay on scroll) · 9. **Responsive** (MobileMenu, admin cards on phones, Cypress checks) ·
+10. **Docker** (compose: db/backend/agents/frontend, init_db.sql = full schema, nginx) ·
+**Final review 2026-09-29**: UTC timestamps; hyperlink button; ER diagram complete; fixed like state after refresh, comment counts,
+feed race/duplicates; hardening (JSON errors, input limits, ban check per request, reset logs out sessions, rate limits, upload magic bytes,
+private emails, DOMPurify allowlist, CSP/security headers, pinned deps); GitHub branch `FinalProject` pushed ·
+**Phase 11 started:** AWS override + Caddy HTTPS + PROXY_HOPS written and validated with `docker compose config` (not deployed yet).

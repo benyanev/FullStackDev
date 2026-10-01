@@ -1,0 +1,52 @@
+# AWS production — layered on top of docker-compose.yml:
+#
+#     docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build
+#
+# Differences from running on a PC:
+#   - the database is Amazon RDS (DB_HOST / DB_USER / DB_PASSWORD from .env),
+#     so the local MySQL container is not started
+#   - Caddy is the only public entry point (ports 80 + 443): it gets a free
+#     HTTPS certificate from Let's Encrypt for DOMAIN and renews it automatically
+#   - FLASK_ENV=production → the session cookie is only sent over HTTPS
+#
+# .env on the server must set: DOMAIN, DB_HOST, DB_USER, DB_PASSWORD,
+# SECRET_KEY, OPENAI_API_KEY, RESEND_API_KEY.
+
+services:
+  db:
+    profiles: ["local-db"]          # not started on AWS (RDS is used instead)
+
+  backend:
+    depends_on: !reset {}
+    environment: &aws-env
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      FLASK_ENV: production
+      PROXY_HOPS: "2"               # Caddy + nginx in front of Flask
+      FRONTEND_URL: https://${DOMAIN}
+
+  agents:
+    depends_on: !reset {}
+    environment: *aws-env
+
+  frontend:
+    ports: !reset []                # only reachable through Caddy
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data            # certificates survive restarts
+      - caddy_config:/config
+    depends_on:
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

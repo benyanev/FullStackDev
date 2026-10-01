@@ -15,6 +15,7 @@ from core.config import (
     BEHIND_PROXY,
     CORS_ORIGINS,
     MAX_CONTENT_LENGTH,
+    PROXY_HOPS,
     RATELIMIT_ENABLED,
     SECRET_KEY,
 )
@@ -40,9 +41,10 @@ def create_app():
     # Reject oversized uploads (413) before Flask reads them into memory
     app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
-    # Behind nginx: trust ONE proxy hop for the client IP and http/https scheme
+    # Behind nginx (and Caddy on AWS): trust exactly PROXY_HOPS proxies for
+    # the client IP and the http/https scheme
     if BEHIND_PROXY:
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=PROXY_HOPS, x_proto=PROXY_HOPS)
 
     # Initialise extensions (created in core/extensions.py)
     cors.init_app(app, origins=CORS_ORIGINS, supports_credentials=True)

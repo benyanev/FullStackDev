@@ -35,3 +35,13 @@ def test_without_proxy_ignores_forwarded_header():
 
     # Assert — a client cannot fake its IP with the header
     assert ip == '172.18.0.5'
+
+
+@patch("app.PROXY_HOPS", 2)
+@patch("app.BEHIND_PROXY", True)
+def test_two_proxies_on_aws_use_the_real_client_ip():
+    # Act — Caddy adds the client, nginx adds Caddy: "client, caddy"
+    ip = _client_ip(create_app(), '203.0.113.7, 172.18.0.9')
+
+    # Assert
+    assert ip == '203.0.113.7'

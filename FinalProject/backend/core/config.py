@@ -42,6 +42,9 @@ IS_PRODUCTION = os.environ.get('FLASK_ENV') == 'production'
 # uses the real client IP from X-Forwarded-For (needed by the rate limiter).
 # Keep 0 otherwise, or clients could fake their IP with that header.
 BEHIND_PROXY = os.environ.get('BEHIND_PROXY', '0') == '1'
+# How many proxies are in front of Flask: 1 = nginx (Docker on a PC),
+# 2 = Caddy (HTTPS) + nginx on AWS. Flask trusts exactly that many hops.
+PROXY_HOPS = int(os.environ.get('PROXY_HOPS', '1'))
 
 # Rate limiting on/off (always on in real use; the test suite switches it off)
 RATELIMIT_ENABLED = os.environ.get('RATELIMIT_ENABLED', '1') == '1'
