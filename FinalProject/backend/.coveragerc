@@ -1,0 +1,15 @@
+[run]
+source = .
+omit =
+    tests/*
+    seed_agents.py
+    run_agents.py
+    make_admin.py
+
+[report]
+show_missing = True
+# The project requires at least 85% coverage (Core 2f)
+fail_under = 85
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:

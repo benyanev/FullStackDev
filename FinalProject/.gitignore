@@ -1,0 +1,34 @@
+# Secrets
+.env
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / frontend (see also my-app/.gitignore)
+node_modules/
+my-app/dist/
+my-app/cypress/screenshots/
+my-app/cypress/videos/
+
+# User uploads (keep the folders, not the files)
+backend/static/uploads/**/*
+!backend/static/uploads/**/
+!backend/static/uploads/**/.gitkeep
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Course assignment PDF (not ours to publish)
+RUNI Full Stack Project 2026*.pdf
+
+# Private AI/developer handoff notes (server details) — keep local only
+PROJECT_STATUS.md
